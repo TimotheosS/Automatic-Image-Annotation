@@ -61,9 +61,12 @@ class App(QWidget):
         
     def loadImageFunction(self):
         self.label.setText('Loading....')  
+        
+        
         ## Change the Directory Path
         self.loadedImage = QFileDialog.getOpenFileName(None,'Open file','C:/Users/timot/Desktop')[0]
-        self.pixmap = QPixmap(self.loadedImage)
+        
+        self.pixmap = QPixmap(self.loadedImage)        
         self.label.setScaledContents(True)
         self.label.setPixmap(self.pixmap)
         
