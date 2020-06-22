@@ -4,13 +4,13 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget
 from PyQt5.QtGui import QPixmap
 import cv2
+import os
 import numpy as np
 
 ## Change the Directory Paths
-configPath = "C:/Users/timot/.spyder-py3/YOLO/yolov3.cfg"
-weightsPath = "C:/Users/timot/.spyder-py3/YOLO/yolov3.weights"
-classesPath = "C:/Users/timot/.spyder-py3/YOLO/yolov3.txt"
-
+configPath = "yolov3.cfg"
+weightsPath = "yolov3.weights"
+classesPath = "yolov3.txt"
 
 class App(QWidget):
     
@@ -61,10 +61,9 @@ class App(QWidget):
         
     def loadImageFunction(self):
         self.label.setText('Loading....')  
-        
-        
-        ## Change the Directory Path
-        self.loadedImage = QFileDialog.getOpenFileName(None,'Open file','C:/Users/timot/Desktop')[0]
+       
+        desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+        self.loadedImage = QFileDialog.getOpenFileName(None,'Open file',desktop)[0]
         
         self.pixmap = QPixmap(self.loadedImage)        
         self.label.setScaledContents(True)
@@ -139,8 +138,11 @@ class App(QWidget):
         
         self.classes_ids = class_ids
         self.im_indices = indices
-        self.im_boxes = boxes
+        self.im_boxes = boxes        
+        cv2.imwrite("object-detection.jpg", self.image) 
+        self.fillTable(ids,colors,labels)
         
+    def fillTable(self,ids,colors,labels):
         headers = ["Label", "Red", "Green", "Blue"]
         self.col = len(headers)
         self.rows = len(ids) + 1
@@ -159,8 +161,7 @@ class App(QWidget):
             self.detTable.setItem(i,0, QTableWidgetItem(labels[i-1]))
             for j in range(1,self.col):
                 self.detTable.setItem(i,j, QTableWidgetItem(str(round(colors[i-1][j-1]))))
-            self.detTable.resizeColumnsToContents()
-        cv2.imwrite("object-detection.jpg", self.image)        
+            self.detTable.resizeColumnsToContents()       
         
     def get_output_layers(self):
         layer_names = self.net.getLayerNames()
