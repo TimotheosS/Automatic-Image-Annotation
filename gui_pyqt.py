@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget
+from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox
 from PyQt5.QtGui import QPixmap
 import cv2
 import numpy as np
@@ -50,14 +50,18 @@ class App(QWidget):
         app.exec_()
     
     def updateBoxesFunction(self):
-        self.image = cv2.imread(self.loadedImage)
+        self.image = cv2.imread(self.loadedImage)        
         for i in range(1,self.rows):            
             label = (self.detTable.item(i,0).text())
             x = int(self.detTable.item(i,1).text())
             y = int(self.detTable.item(i,2).text())
             w = int(self.detTable.item(i,3).text())
             h = int(self.detTable.item(i,4).text())
-            self.draw_bounding_box(self.image, label,self.classes_ids[i-1], x, y, (x+w), (y+h))
+            if label in self.classes:                
+                index = self.classes.index(label)
+                self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h))
+            else:
+                self.draw_bounding_box(self.image, label,(-1), x, y, (x+w), (y+h))
             self.label.setPixmap(QPixmap('object-detection.jpg'))
         
     def quitApp(self):
@@ -213,11 +217,34 @@ class App(QWidget):
         
     
     def draw_bounding_box(self,img, label, class_id, x, y, x_plus_w, y_plus_h):
-        self.color = self.COLORS[class_id]    
-        cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), self.color, 2)
-        cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, self.color, 2)
+        if class_id == -1:            
+            color = np.random.uniform(0, 255, 3)
+            choice = self.new_label_addition(label,color)
+            if choice == 1:                    
+                cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
+                cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            else:
+                cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2) 
+        else:
+            color = self.COLORS[class_id]    
+            cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
+            cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
         cv2.imwrite("object-detection.jpg", self.image)
         
+    def new_label_addition(self,label,color):
+        alert = QMessageBox()
+        alert.setIcon(QMessageBox.Information)
+        alert.setWindowTitle("New label")
+        alert.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        alert.setText('This label is not in the existing dataset, would you like to add it ?')
+        returnValue = alert.exec()
+        choice = 0
+        if returnValue == QMessageBox.Yes:          
+           self.classes.append(label)
+           self.COLORS = np.vstack([self.COLORS, color])
+           choice = 1
+        return(choice)
+       
     def center(self):
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
