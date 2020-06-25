@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox
+from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
 import cv2
 import numpy as np
 import os
@@ -56,13 +57,28 @@ class App(QWidget):
             x = int(self.detTable.item(i,1).text())
             y = int(self.detTable.item(i,2).text())
             w = int(self.detTable.item(i,3).text())
-            h = int(self.detTable.item(i,4).text())
+            h = int(self.detTable.item(i,4).text())            
             if label in self.classes:                
-                index = self.classes.index(label)
-                self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h))
-            else:
-                self.draw_bounding_box(self.image, label,(-1), x, y, (x+w), (y+h))
-            self.label.setPixmap(QPixmap('object-detection.jpg'))
+                index = self.classes.index(label)  
+                if self.detTable.cellWidget(i,5).isChecked():
+                    thickness = 1.4
+                    rect_size = 4
+                    self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
+                else:
+                    rect_size = 2
+                    thickness = 0.8
+                    self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
+            elif label not in self.classes:
+                index = -1
+                if self.detTable.cellWidget(i,5).isChecked():
+                    thickness = 1.4
+                    rect_size = 4
+                    self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
+                else:
+                    rect_size = 2
+                    thickness = 0.8
+                    self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)            
+        self.label.setPixmap(QPixmap('object-detection.jpg'))
         
     def quitApp(self):
         QApplication.quit()
@@ -184,7 +200,7 @@ class App(QWidget):
             h = box[3]
             ids.append(class_ids[i])
             labels.append(self.classes[class_ids[i]])
-            self.draw_bounding_box(self.image,str(self.classes[class_ids[i]]), class_ids[i], round(x), round(y), round(x+w), round(y+h))
+            self.draw_bounding_box(self.image,str(self.classes[class_ids[i]]), class_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
         labels = list(labels)
         ids = list(ids)
         
@@ -193,42 +209,50 @@ class App(QWidget):
         self.im_boxes = boxes
         self.fillTable(ids,colors,labels,boxes)        
         
-    def fillTable(self,ids,colors,labels,boxes):
-        headers = ["Label", "X", "Y", "Width","Height"]
+    def fillTable(self,ids,colors,labels,boxes):     
+        headers = ["Label", "X", "Y", "Width","Height", "Check"]
         self.col = len(headers)
         self.rows = len(ids) + 1
-
+        
+        self.checkBoxes = QButtonGroup(self.detTable)
+        self.checkBoxes.setExclusive(True)
+        
         self.detTable.setRowCount(self.rows)
-        self.detTable.setColumnCount(self.col)
+        self.detTable.setColumnCount(self.col)        
         
         for i in range(0,self.col):
             self.detTable.setItem(0,i, QTableWidgetItem(headers[i]))
         
-        for i in range(1,self.rows):            
+        for i in range(1,self.rows):
             self.detTable.setItem(i,0, QTableWidgetItem(labels[i-1]))
-            for j in range(1,self.col):
-                self.detTable.setItem(i,j, QTableWidgetItem(str(round(boxes[i-1][j-1]))))
-            self.detTable.resizeColumnsToContents()       
-        
+            name = "chkBoxItem" + str(i)
+            name = QCheckBox()
+            self.checkBoxes.addButton(name)
+            name.setCheckState(Qt.Unchecked) 
+            self.detTable.setCellWidget(i, 5, name)
+            for j in range(1,self.col-1):
+                self.detTable.setItem(i,j, QTableWidgetItem(str(round(boxes[i-1][j-1]))))            
+            self.detTable.resizeColumnsToContents()
+            
     def get_output_layers(self):
         layer_names = self.net.getLayerNames()
         self.output_layers = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
         return self.output_layers
         
     
-    def draw_bounding_box(self,img, label, class_id, x, y, x_plus_w, y_plus_h):
+    def draw_bounding_box(self,img, label, class_id, x, y, x_plus_w, y_plus_h, thickness,rect_size):
         if class_id == -1:            
             color = np.random.uniform(0, 255, 3)
             choice = self.new_label_addition(label,color)
             if choice == 1:                    
-                cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-                cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+                cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, rect_size)
+                cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, thickness, color, 2)
             else:
-                cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2) 
+                cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, rect_size) 
         else:
             color = self.COLORS[class_id]    
-            cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-            cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, rect_size)
+            cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, thickness, color, 2)
         cv2.imwrite("object-detection.jpg", self.image)
         
     def new_label_addition(self,label,color):
