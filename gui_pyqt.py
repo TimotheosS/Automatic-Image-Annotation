@@ -37,11 +37,16 @@ class App(QWidget):
         
         self.savedImages= []
         self.seen = set()
+        self.flag = 1
         
         self.label = form.loadedImgLbl
         self.quitBut = form.qbtn.clicked.connect(self.quitApp)
         self.loadImButton = form.loadIm.clicked.connect(self.loadImageFunction)
         self.loadVidButton = form.loadVid.clicked.connect(self.loadVideoFunction)
+        self.boundingBoxes = form.boundingBoxes
+        self.boundingBoxes.clicked.connect(self.boundingBoxesFunction)
+        self.segmentationButton = form.segmentationButton
+        self.segmentationButton.clicked.connect(self.segmentationFunction)
         self.updateBoxes = form.updateBoxes
         self.updateBoxes.clicked.connect(self.updateBoxesFunction)        
         self.showLibButton = form.saveToLib
@@ -49,6 +54,36 @@ class App(QWidget):
         self.detTable = form.detailsTable
         
         app.exec_()
+    
+    def boundingBoxesFunction(self):
+        ids = []
+        labels = []
+        colors = []
+        
+        if self.flag:
+            for i in self.im_indices:
+                i = i[0]
+                box = self.im_boxes[i]
+                x = box[0]
+                y = box[1]
+                w = box[2]
+                h = box[3]
+                ids.append(self.classes_ids[i])
+                labels.append(self.classes[self.classes_ids[i]])
+                self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+            labels = list(labels)
+            ids = list(ids)
+            self.flag = 0
+           
+            cv2.imwrite("object-detection.jpg", self.image)
+            self.label.setPixmap(QPixmap('object-detection.jpg'))
+            self.fillTable(ids,colors,labels,self.im_boxes)  
+        elif not(self.flag):
+            self.flag = 1            
+            self.image = cv2.imread(self.loadedImage)
+            cv2.imwrite("object-detection.jpg", self.image)
+            self.label.setPixmap(QPixmap('object-detection.jpg'))
+            self.emptyTable()
     
     def updateBoxesFunction(self):
         self.image = cv2.imread(self.loadedImage)        
@@ -156,6 +191,9 @@ class App(QWidget):
         
         self.showLibButton.setEnabled(True)
         self.updateBoxes.setEnabled(True)
+        self.boundingBoxes.setEnabled(True)
+        self.segmentationButton.setEnabled(True)
+        cv2.imwrite("object-detection.jpg", self.image)
         self.label.setPixmap(QPixmap('object-detection.jpg'))
                     
     def yoloPredImage(self):
@@ -165,9 +203,6 @@ class App(QWidget):
 
         # initialization
         class_ids = []
-        ids = []
-        labels = []
-        colors = []
         confidences = []
         boxes = []
         conf_threshold = 0.5
@@ -190,24 +225,10 @@ class App(QWidget):
                     boxes.append([x, y, w, h])
                     
         indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
-
-        for i in indices:
-            i = i[0]
-            box = boxes[i]
-            x = box[0]
-            y = box[1]
-            w = box[2]
-            h = box[3]
-            ids.append(class_ids[i])
-            labels.append(self.classes[class_ids[i]])
-            self.draw_bounding_box(self.image,str(self.classes[class_ids[i]]), class_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
-        labels = list(labels)
-        ids = list(ids)
         
         self.classes_ids = class_ids
         self.im_indices = indices
-        self.im_boxes = boxes
-        self.fillTable(ids,colors,labels,boxes)        
+        self.im_boxes = boxes       
         
     def fillTable(self,ids,colors,labels,boxes):     
         headers = ["Label", "X", "Y", "Width","Height", "Check"]
@@ -233,6 +254,12 @@ class App(QWidget):
             for j in range(1,self.col-1):
                 self.detTable.setItem(i,j, QTableWidgetItem(str(round(boxes[i-1][j-1]))))            
             self.detTable.resizeColumnsToContents()
+            
+    def emptyTable(self):
+        self.col = 0
+        self.rows = 0
+        self.detTable.setRowCount(self.rows)
+        self.detTable.setColumnCount(self.col)
             
     def get_output_layers(self):
         layer_names = self.net.getLayerNames()
@@ -274,6 +301,9 @@ class App(QWidget):
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
+        
+    def segmentationFunction(self):
+        print("To be completed")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
