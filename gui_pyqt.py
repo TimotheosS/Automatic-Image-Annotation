@@ -51,14 +51,81 @@ class App(QWidget):
         self.updateBoxes.clicked.connect(self.updateBoxesFunction)        
         self.showLibButton = form.saveToLib
         self.showLibButton.clicked.connect(self.saveToLibFunction)
+        
+        self.addLabel = form.addLabel
+        self.addLabel.clicked.connect(self.addLabelFunction)
+        self.moveLabel = form.moveLabel
+        self.moveLabel.clicked.connect(self.moveLabelFunction)
+        self.adjustSize = form.adjustSize
+        self.adjustSize.clicked.connect(self.adjustSizeFunction)
+        self.deleteLabel = form.deleteLabel
+        self.deleteLabel.clicked.connect(self.deleteLabelFunction)
+        
         self.detTable = form.detailsTable
         
         app.exec_()
+        
+    def addLabelFunction(self):
+        print("Add Label")
+        
+    def moveLabelFunction(self):
+        print("Move Label")
+        
+    def adjustSizeFunction(self):
+        print("Adjust Size")
+         
+    def deleteLabelFunction(self):
+        self.notSelectedBoxToDelete()
+        
+    def notSelectedBoxToDelete(self):  
+        alert = QMessageBox()
+        alert.setIcon(QMessageBox.Warning)
+        alert.setWindowTitle("Delete a Box")
+        if self.selectedCheckbox == -1:
+            alert.setStandardButtons(QMessageBox.Ok)
+            alert.setText('You have not selected a box to delete. Please select and try again. Do not forget to press "Update" before trying to delete !')
+            alert.exec()
+        else:
+            alert.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            alert.setText('Are you sure you want to delete this box ?')
+            returnValue = alert.exec()
+            
+            if returnValue == QMessageBox.Yes:
+                del self.classes_ids[self.selectedCheckbox]
+                tmp = np.array([[0]])
+                ids = []
+                labels = []
+                self.im_indices = np.delete(self.im_indices, self.selectedCheckbox,0)
+                
+                if len(self.im_indices) == 0:
+                    tmp = np.array([])
+                
+                for i in range(1,len(self.im_indices)):
+                    tmp = np.vstack((tmp,i))
+                    
+                self.im_indices = tmp
+                del self.im_boxes[self.selectedCheckbox][:]
+                del self.im_boxes[self.selectedCheckbox]
+                self.fillTable()
+                
+                self.image = cv2.imread(self.loadedImage)
+                for i in self.im_indices:
+                    i = i[0]
+                    box = self.im_boxes[i]
+                    x = box[0]
+                    y = box[1]
+                    w = box[2]
+                    h = box[3]
+                    ids.append(self.classes_ids[i])
+                    labels.append(self.classes[self.classes_ids[i]])
+                    self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+                cv2.imwrite("object-detection.jpg", self.image)
+                self.label.setPixmap(QPixmap('object-detection.jpg'))
     
     def boundingBoxesFunction(self):
         ids = []
         labels = []
-        colors = []
+        self.selectedCheckbox = -1
         
         if self.flag:
             for i in self.im_indices:
@@ -74,12 +141,26 @@ class App(QWidget):
             labels = list(labels)
             ids = list(ids)
             self.flag = 0
-           
+            
+            self.updateBoxes.setEnabled(True)
+            self.addLabel.setEnabled(True)
+            self.moveLabel.setEnabled(True)
+            self.adjustSize.setEnabled(True)
+            self.deleteLabel.setEnabled(True)
+            
             cv2.imwrite("object-detection.jpg", self.image)
             self.label.setPixmap(QPixmap('object-detection.jpg'))
-            self.fillTable(ids,colors,labels,self.im_boxes)  
+            self.fillTable()
+            
         elif not(self.flag):
-            self.flag = 1            
+            self.flag = 1   
+            
+            self.updateBoxes.setEnabled(False)
+            self.addLabel.setEnabled(False)
+            self.moveLabel.setEnabled(False)
+            self.adjustSize.setEnabled(False)
+            self.deleteLabel.setEnabled(False)
+            
             self.image = cv2.imread(self.loadedImage)
             cv2.imwrite("object-detection.jpg", self.image)
             self.label.setPixmap(QPixmap('object-detection.jpg'))
@@ -92,10 +173,12 @@ class App(QWidget):
             x = int(self.detTable.item(i,1).text())
             y = int(self.detTable.item(i,2).text())
             w = int(self.detTable.item(i,3).text())
-            h = int(self.detTable.item(i,4).text())            
+            h = int(self.detTable.item(i,4).text())
+            self.im_boxes[i-1][:] = ([x, y, w, h])
             if label in self.classes:                
                 index = self.classes.index(label)  
                 if self.detTable.cellWidget(i,5).isChecked():
+                    self.selectedCheckbox = i-1
                     thickness = 1.4
                     rect_size = 4
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
@@ -106,13 +189,17 @@ class App(QWidget):
             elif label not in self.classes:
                 index = -1
                 if self.detTable.cellWidget(i,5).isChecked():
+                    self.selectedCheckbox = i-1
                     thickness = 1.4
                     rect_size = 4
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
+                    index = self.classes.index(label)
                 else:
                     rect_size = 2
                     thickness = 0.8
-                    self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)            
+                    self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
+                    index = self.classes.index(label)
+            self.classes_ids[i-1] = index
         self.label.setPixmap(QPixmap('object-detection.jpg'))
         
     def quitApp(self):
@@ -189,12 +276,12 @@ class App(QWidget):
         
         self.yoloPredImage()
         
-        self.showLibButton.setEnabled(True)
-        self.updateBoxes.setEnabled(True)
+        self.showLibButton.setEnabled(True)        
         self.boundingBoxes.setEnabled(True)
         self.segmentationButton.setEnabled(True)
         cv2.imwrite("object-detection.jpg", self.image)
         self.label.setPixmap(QPixmap('object-detection.jpg'))
+        self.emptyTable()
                     
     def yoloPredImage(self):
         outs = self.net.forward(self.get_output_layers())
@@ -228,12 +315,12 @@ class App(QWidget):
         
         self.classes_ids = class_ids
         self.im_indices = indices
-        self.im_boxes = boxes       
+        self.im_boxes = boxes    
         
-    def fillTable(self,ids,colors,labels,boxes):     
+    def fillTable(self):     
         headers = ["Label", "X", "Y", "Width","Height", "Check"]
         self.col = len(headers)
-        self.rows = len(ids) + 1
+        self.rows = len(self.classes_ids) + 1
         
         self.checkBoxes = QButtonGroup(self.detTable)
         self.checkBoxes.setExclusive(True)
@@ -245,14 +332,14 @@ class App(QWidget):
             self.detTable.setItem(0,i, QTableWidgetItem(headers[i]))
         
         for i in range(1,self.rows):
-            self.detTable.setItem(i,0, QTableWidgetItem(labels[i-1]))
+            self.detTable.setItem(i,0, QTableWidgetItem(self.classes[self.classes_ids[i-1]]))
             name = "chkBoxItem" + str(i)
             name = QCheckBox()
             self.checkBoxes.addButton(name)
             name.setCheckState(Qt.Unchecked) 
             self.detTable.setCellWidget(i, 5, name)
             for j in range(1,self.col-1):
-                self.detTable.setItem(i,j, QTableWidgetItem(str(round(boxes[i-1][j-1]))))            
+                self.detTable.setItem(i,j, QTableWidgetItem(str(round(self.im_boxes[i-1][j-1]))))            
             self.detTable.resizeColumnsToContents()
             
     def emptyTable(self):
