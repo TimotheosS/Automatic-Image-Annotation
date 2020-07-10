@@ -97,6 +97,26 @@ class App(QWidget):
                 labels = []
                 self.im_indices = np.delete(self.im_indices, self.selectedCheckbox,0)
                 
+                if not(self.segmFlag):
+                    mask = np.zeros(self.image.shape[:2],np.uint8)        
+                    bgdModel = np.zeros((1,65),np.float64)
+                    fgdModel = np.zeros((1,65),np.float64)
+                    box = self.im_boxes[self.selectedCheckbox]
+                    rect = (int(box[0]),int(box[1]),int(box[2]),int(box[3])) 
+                    cv2.grabCut(self.image,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+                    mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+                    self.segmImage = self.segmImage -  self.image*mask2[:,:,np.newaxis]
+                    for y in range(0, self.image.shape[0]):
+                        for x in range(0, self.image.shape[1]):
+                            if (self.segmImage[y][x][0] == self.segmImage[y][x][1]) and (self.segmImage[y][x][2] == self.segmImage[y][x][1]):
+                                self.segmImage[y][x][0] = 0
+                                self.segmImage[y][x][1] = 0
+                                self.segmImage[y][x][2] = self.gray[y][x]
+                            elif (self.segmImage[y][x][0] == 255) and (self.segmImage[y][x][1] == 255) and (self.segmImage[y][x][2] == 255):
+                                self.segmImage[y][x][0] = 0
+                                self.segmImage[y][x][1] = 0
+                                self.segmImage[y][x][2] = 255
+                
                 if len(self.im_indices) == 0:
                     tmp = np.array([])
                 
@@ -258,7 +278,10 @@ class App(QWidget):
         self.label.setScaledContents(True)
         self.label.setPixmap(self.pixmap)
         
-        self.image = cv2.imread(self.loadedImage)
+        self.image = cv2.imread(self.loadedImage)                
+        self.segmImage = np.zeros((self.image.shape))
+        
+        self.gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         
         if (self.pixmap.width() > 660) or (self.pixmap.height() > 660):
             ratio = max(self.pixmap.width()/660,self.pixmap.height()/660) + 0.71
@@ -279,7 +302,8 @@ class App(QWidget):
         self.showLibButton.setEnabled(True)        
         self.boundingBoxes.setEnabled(True)
         self.segmentationButton.setEnabled(True)
-        cv2.imwrite("object-detection.jpg", self.image)
+        self.segmFlag = 1
+        cv2.imwrite("object-detection.jpg", self.image)        
         self.label.setPixmap(QPixmap('object-detection.jpg'))
         self.emptyTable()
                     
@@ -390,7 +414,32 @@ class App(QWidget):
         self.move(qr.topLeft())
         
     def segmentationFunction(self):
-        print("To be completed")
+        mask = np.zeros(self.image.shape[:2],np.uint8)
+        
+        bgdModel = np.zeros((1,65),np.float64)
+        fgdModel = np.zeros((1,65),np.float64)
+        
+        if self.segmFlag:  
+            self.segmFlag = 0
+            for i in self.im_indices:
+                i = i[0]
+                box = self.im_boxes[i]
+                rect = (int(box[0]),int(box[1]),int(box[2]),int(box[3]))            
+                cv2.grabCut(self.image,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+                mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+                self.segmImage = self.segmImage +  self.image*mask2[:,:,np.newaxis]
+                # self.draw_bounding_box(self.segmImage,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(box[0]), round(box[1]), round(box[0]+box[2]), round(box[1]+box[3]),0.8,2)
+            
+            for y in range(0, self.image.shape[0]):
+                for x in range(0, self.image.shape[1]):
+                    if (self.segmImage[y][x][0] == self.segmImage[y][x][1]) and (self.segmImage[y][x][2] == self.segmImage[y][x][1]):
+                        self.segmImage[y][x][0] = 0
+                        self.segmImage[y][x][1] = 0
+                        self.segmImage[y][x][2] = self.gray[y][x]
+        self.image = self.segmImage
+        cv2.imwrite("object-detection.jpg", self.segmImage) 
+        self.label.setPixmap(QPixmap('object-detection.jpg'))
+        self.emptyTable()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
