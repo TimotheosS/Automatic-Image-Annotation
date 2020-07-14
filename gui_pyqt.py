@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import QApplication, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox, QGraphicsView
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import cv2
@@ -11,7 +11,6 @@ import os
 configPath = "yolov3.cfg"
 weightsPath = "yolov3.weights"
 classesPath = "yolov3.txt"
-
 
 class App(QWidget):
     
@@ -24,6 +23,7 @@ class App(QWidget):
         form.setupUi(window)
         window.show()
                 
+        self.updated = 1
         self.im_counter = 0
         self.scale = 0.00392
         self.classes = None
@@ -38,6 +38,7 @@ class App(QWidget):
         self.savedImages= []
         self.seen = set()
         self.flag = 1
+        self.segmentationFlag = 0
         
         self.label = form.loadedImgLbl
         self.quitBut = form.qbtn.clicked.connect(self.quitApp)
@@ -48,7 +49,9 @@ class App(QWidget):
         self.segmentationButton = form.segmentationButton
         self.segmentationButton.clicked.connect(self.segmentationFunction)
         self.updateBoxes = form.updateBoxes
-        self.updateBoxes.clicked.connect(self.updateBoxesFunction)        
+        self.updateBoxes.clicked.connect(self.updateBoxesFunction)  
+        self.originalImage = form.originalImage
+        self.originalImage.clicked.connect(self.originalImageFunction)
         self.showLibButton = form.saveToLib
         self.showLibButton.clicked.connect(self.saveToLibFunction)
         
@@ -65,8 +68,109 @@ class App(QWidget):
         
         app.exec_()
         
+    def originalImageFunction(self):
+        self.emptyTable()  
+        self.flag = 1
+        self.segmentationFlag = 0
+        self.updateImage()
+        
+    def updateImage(self):
+        if (self.flag == 1) and (self.segmentationFlag == 0):
+            self.image = cv2.imread(self.loadedImage)
+            cv2.imwrite("object-detection.jpg", self.image)
+            self.label.setPixmap(QPixmap('object-detection.jpg'))
+            self.emptyTable()
+        elif (self.flag == 1) and (self.segmentationFlag == 1):
+            self.label.setPixmap(QPixmap('segmented-image.jpg'))
+            self.emptyTable()
+            self.image = self.segmImage
+        elif (self.flag == 0) and (self.segmentationFlag == 0):
+            self.image = cv2.imread(self.loadedImage)
+            for i in self.im_indices:
+                i = i[0]
+                box = self.im_boxes[i]
+                x = box[0]
+                y = box[1]
+                w = box[2]
+                h = box[3]
+                self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+            cv2.imwrite("object-detection.jpg", self.image)
+            self.label.setPixmap(QPixmap('object-detection.jpg'))
+            self.fillTable()
+        elif (self.flag == 0) and (self.segmentationFlag == 1):
+            imageTmp = self.segmImage
+            if self.updated:
+                for i in self.im_indices:
+                    i = i[0]
+                    box = self.im_boxes[i]
+                    x = box[0]
+                    y = box[1]
+                    w = box[2]
+                    h = box[3]
+                    self.draw_bounding_box(imageTmp,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+            cv2.imwrite("object-detection.jpg", imageTmp)
+            self.label.setPixmap(QPixmap('object-detection.jpg'))
+            self.fillTable()
+            
     def addLabelFunction(self):
-        print("Add Label")
+        self.addClicked = 1      
+        self.leftClicked = 0     
+        self.label.mousePressEvent = self.getPos      
+
+    def getPos(self, event):
+        if (event.button() == Qt.LeftButton) and (self.addClicked) and not(self.leftClicked):
+            self.leftClicked = 1
+            self.x_begin = round(event.pos().x() * self.ratio)
+            self.y_begin = round(event.pos().y() * self.ratio)
+        elif (event.button() == Qt.RightButton) and (self.addClicked) and (self.leftClicked):
+            x_end = round(event.pos().x() * self.ratio)
+            y_end = round(event.pos().y() * self.ratio)
+            self.addClicked = 0    
+            new_label = self.inputDialogLabel()
+            
+            if new_label in self.classes:                
+                index = self.classes.index(new_label) 
+                self.draw_bounding_box(self.image,str(self.classes[index]), index, round(self.x_begin), round(self.y_begin), round(x_end), round(y_end),0.8,2)                        
+            else:
+                index = -1
+                self.draw_bounding_box(self.image,str(new_label), index, round(self.x_begin), round(self.y_begin), round(x_end), round(y_end),0.8,2)                        
+            
+            index = self.classes.index(new_label)            
+            self.classes_ids.append(index)
+            self.im_boxes.append([self.x_begin,self.y_begin, x_end-self.x_begin,y_end-self.y_begin])
+            self.im_indices = np.vstack((self.im_indices,len(self.im_indices)))
+            self.fillTable()                        
+            
+            if not(self.segmFlag):
+                    self.image = cv2.imread(self.loadedImage)
+                    mask = np.zeros(self.image.shape[:2],np.uint8)        
+                    bgdModel = np.zeros((1,65),np.float64)
+                    fgdModel = np.zeros((1,65),np.float64)
+                    box = self.im_boxes[self.selectedCheckbox]
+                    rect = (int(box[0]),int(box[1]),int(box[2]),int(box[3])) 
+                    cv2.grabCut(self.image,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+                    mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+                    self.segmImage = self.segmImage +  self.image*mask2[:,:,np.newaxis]
+                    for y in range(0, self.image.shape[0]):
+                        for x in range(0, self.image.shape[1]):
+                            if (self.segmImage[y][x][0] == 0) and (self.segmImage[y][x][1] == 0) and (self.segmImage[y][x][2] == 0):
+                                self.segmImage[y][x][0] = 0
+                                self.segmImage[y][x][1] = 0
+                                self.segmImage[y][x][2] = self.gray[y][x]
+                            elif (self.segmImage[y][x][0] == 255) and (self.segmImage[y][x][1] == 255) and (self.segmImage[y][x][2] == 255):
+                                self.segmImage[y][x][0] = 0
+                                self.segmImage[y][x][1] = 0
+                                self.segmImage[y][x][2] = 255
+                    self.image = self.segmImage
+                    cv2.imwrite("segmented-image.jpg", self.segmImage)                    
+            self.updateImage()                            
+            
+    def inputDialogLabel(self):
+        text, ok = QInputDialog.getText(self, 'Text Input Dialog', 'Enter your name:')
+        le = QLineEdit()
+        if ok:
+            le.setText(str(text))
+        return(text)
         
     def moveLabelFunction(self):
         print("Move Label")
@@ -93,11 +197,10 @@ class App(QWidget):
             if returnValue == QMessageBox.Yes:
                 del self.classes_ids[self.selectedCheckbox]
                 tmp = np.array([[0]])
-                ids = []
-                labels = []
                 self.im_indices = np.delete(self.im_indices, self.selectedCheckbox,0)
                 
                 if not(self.segmFlag):
+                    self.image = cv2.imread(self.loadedImage)
                     mask = np.zeros(self.image.shape[:2],np.uint8)        
                     bgdModel = np.zeros((1,65),np.float64)
                     fgdModel = np.zeros((1,65),np.float64)
@@ -108,7 +211,7 @@ class App(QWidget):
                     self.segmImage = self.segmImage -  self.image*mask2[:,:,np.newaxis]
                     for y in range(0, self.image.shape[0]):
                         for x in range(0, self.image.shape[1]):
-                            if (self.segmImage[y][x][0] == self.segmImage[y][x][1]) and (self.segmImage[y][x][2] == self.segmImage[y][x][1]):
+                            if (self.segmImage[y][x][0] == 0) and (self.segmImage[y][x][1] == 0) and (self.segmImage[y][x][2] == 0):
                                 self.segmImage[y][x][0] = 0
                                 self.segmImage[y][x][1] = 0
                                 self.segmImage[y][x][2] = self.gray[y][x]
@@ -116,6 +219,8 @@ class App(QWidget):
                                 self.segmImage[y][x][0] = 0
                                 self.segmImage[y][x][1] = 0
                                 self.segmImage[y][x][2] = 255
+                    self.image = self.segmImage
+                    cv2.imwrite("segmented-image.jpg", self.segmImage)
                 
                 if len(self.im_indices) == 0:
                     tmp = np.array([])
@@ -123,71 +228,38 @@ class App(QWidget):
                 for i in range(1,len(self.im_indices)):
                     tmp = np.vstack((tmp,i))
                     
+                self.updated = 1
                 self.im_indices = tmp
                 del self.im_boxes[self.selectedCheckbox][:]
                 del self.im_boxes[self.selectedCheckbox]
-                self.fillTable()
-                
-                self.image = cv2.imread(self.loadedImage)
-                for i in self.im_indices:
-                    i = i[0]
-                    box = self.im_boxes[i]
-                    x = box[0]
-                    y = box[1]
-                    w = box[2]
-                    h = box[3]
-                    ids.append(self.classes_ids[i])
-                    labels.append(self.classes[self.classes_ids[i]])
-                    self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
-                cv2.imwrite("object-detection.jpg", self.image)
-                self.label.setPixmap(QPixmap('object-detection.jpg'))
+                                
+                self.updateImage()
     
     def boundingBoxesFunction(self):
-        ids = []
-        labels = []
         self.selectedCheckbox = -1
         
         if self.flag:
-            for i in self.im_indices:
-                i = i[0]
-                box = self.im_boxes[i]
-                x = box[0]
-                y = box[1]
-                w = box[2]
-                h = box[3]
-                ids.append(self.classes_ids[i])
-                labels.append(self.classes[self.classes_ids[i]])
-                self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
-            labels = list(labels)
-            ids = list(ids)
-            self.flag = 0
-            
+            self.flag = 0            
             self.updateBoxes.setEnabled(True)
             self.addLabel.setEnabled(True)
             self.moveLabel.setEnabled(True)
             self.adjustSize.setEnabled(True)
-            self.deleteLabel.setEnabled(True)
-            
-            cv2.imwrite("object-detection.jpg", self.image)
-            self.label.setPixmap(QPixmap('object-detection.jpg'))
-            self.fillTable()
-            
+            self.deleteLabel.setEnabled(True)            
         elif not(self.flag):
-            self.flag = 1   
-            
+            self.flag = 1               
             self.updateBoxes.setEnabled(False)
             self.addLabel.setEnabled(False)
             self.moveLabel.setEnabled(False)
             self.adjustSize.setEnabled(False)
-            self.deleteLabel.setEnabled(False)
-            
-            self.image = cv2.imread(self.loadedImage)
-            cv2.imwrite("object-detection.jpg", self.image)
-            self.label.setPixmap(QPixmap('object-detection.jpg'))
-            self.emptyTable()
+            self.deleteLabel.setEnabled(False)            
+        self.updateImage()
     
-    def updateBoxesFunction(self):
-        self.image = cv2.imread(self.loadedImage)        
+    def updateBoxesFunction(self):        
+        if self.segmentationFlag:
+            self.image = self.segmImage
+        else:
+            self.image = cv2.imread(self.loadedImage)
+                                    
         for i in range(1,self.rows):            
             label = (self.detTable.item(i,0).text())
             x = int(self.detTable.item(i,1).text())
@@ -220,13 +292,14 @@ class App(QWidget):
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
                     index = self.classes.index(label)
             self.classes_ids[i-1] = index
+        cv2.imwrite("object-detection.jpg", self.image)
+        self.updated = 0
         self.label.setPixmap(QPixmap('object-detection.jpg'))
         
     def quitApp(self):
         QApplication.quit()
         
-    def saveToLibFunction(self):
-        
+    def saveToLibFunction(self):        
         if self.loadedImage in self.seen:
             print ("Already in library")
         else:
@@ -278,16 +351,18 @@ class App(QWidget):
         self.label.setScaledContents(True)
         self.label.setPixmap(self.pixmap)
         
-        self.image = cv2.imread(self.loadedImage)                
-        self.segmImage = np.zeros((self.image.shape))
+        self.segmentationFlag = 0
+        self.flag= 1
         
+        self.image = cv2.imread(self.loadedImage)                
+        self.segmImage = np.zeros((self.image.shape))        
         self.gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         
         if (self.pixmap.width() > 660) or (self.pixmap.height() > 660):
-            ratio = max(self.pixmap.width()/660,self.pixmap.height()/660) + 0.71
-            self.label.resize(self.pixmap.width() / ratio,self.pixmap.height() / ratio )
-            pixmapWidth = self.pixmap.width() / ratio
-            pixmapHeight = self.pixmap.height() / ratio
+            self.ratio = max(self.pixmap.width()/660,self.pixmap.height()/660) + 0.71
+            self.label.resize(self.pixmap.width() / self.ratio,self.pixmap.height() / self.ratio )
+            pixmapWidth = self.pixmap.width() / self.ratio
+            pixmapHeight = self.pixmap.height() / self.ratio
         else:
             self.label.resize(self.pixmap.width(),self.pixmap.height())
             pixmapWidth = self.pixmap.width()
@@ -302,6 +377,7 @@ class App(QWidget):
         self.showLibButton.setEnabled(True)        
         self.boundingBoxes.setEnabled(True)
         self.segmentationButton.setEnabled(True)
+        self.originalImage.setEnabled(True)
         self.segmFlag = 1
         cv2.imwrite("object-detection.jpg", self.image)        
         self.label.setPixmap(QPixmap('object-detection.jpg'))
@@ -312,7 +388,6 @@ class App(QWidget):
         Width = self.image.shape[1]
         Height = self.image.shape[0]        
 
-        # initialization
         class_ids = []
         confidences = []
         boxes = []
@@ -375,8 +450,7 @@ class App(QWidget):
     def get_output_layers(self):
         layer_names = self.net.getLayerNames()
         self.output_layers = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
-        return self.output_layers
-        
+        return self.output_layers   
     
     def draw_bounding_box(self,img, label, class_id, x, y, x_plus_w, y_plus_h, thickness,rect_size):
         if class_id == -1:            
@@ -391,7 +465,6 @@ class App(QWidget):
             color = self.COLORS[class_id]    
             cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, rect_size)
             cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, thickness, color, 2)
-        cv2.imwrite("object-detection.jpg", self.image)
         
     def new_label_addition(self,label,color):
         alert = QMessageBox()
@@ -414,8 +487,8 @@ class App(QWidget):
         self.move(qr.topLeft())
         
     def segmentationFunction(self):
-        mask = np.zeros(self.image.shape[:2],np.uint8)
-        
+        self.image = cv2.imread(self.loadedImage)  
+        mask = np.zeros(self.image.shape[:2],np.uint8)        
         bgdModel = np.zeros((1,65),np.float64)
         fgdModel = np.zeros((1,65),np.float64)
         
@@ -428,18 +501,21 @@ class App(QWidget):
                 cv2.grabCut(self.image,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
                 mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
                 self.segmImage = self.segmImage +  self.image*mask2[:,:,np.newaxis]
-                # self.draw_bounding_box(self.segmImage,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(box[0]), round(box[1]), round(box[0]+box[2]), round(box[1]+box[3]),0.8,2)
-            
+
             for y in range(0, self.image.shape[0]):
                 for x in range(0, self.image.shape[1]):
                     if (self.segmImage[y][x][0] == self.segmImage[y][x][1]) and (self.segmImage[y][x][2] == self.segmImage[y][x][1]):
                         self.segmImage[y][x][0] = 0
                         self.segmImage[y][x][1] = 0
                         self.segmImage[y][x][2] = self.gray[y][x]
-        self.image = self.segmImage
-        cv2.imwrite("object-detection.jpg", self.segmImage) 
-        self.label.setPixmap(QPixmap('object-detection.jpg'))
-        self.emptyTable()
+            cv2.imwrite("segmented-image.jpg", self.segmImage)        
+        
+        if not(self.segmentationFlag):
+            self.segmentationFlag = 1
+        else:
+            self.segmentationFlag = 0
+            
+        self.updateImage()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
