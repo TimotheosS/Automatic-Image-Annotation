@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox, QGraphicsView
+from PyQt5.QtWidgets import QApplication, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import cv2
@@ -59,8 +59,8 @@ class App(QWidget):
         self.addLabel.clicked.connect(self.addLabelFunction)
         self.moveLabel = form.moveLabel
         self.moveLabel.clicked.connect(self.moveLabelFunction)
-        self.adjustSize = form.adjustSize
-        self.adjustSize.clicked.connect(self.adjustSizeFunction)
+        self.adjustSizeButton = form.adjustSize
+        self.adjustSizeButton.clicked.connect(self.adjustSizeFunction)
         self.deleteLabel = form.deleteLabel
         self.deleteLabel.clicked.connect(self.deleteLabelFunction)
         
@@ -201,8 +201,35 @@ class App(QWidget):
         self.updateBoxesFunction()
 
     def adjustSizeFunction(self):
-        print("Adjust Size")
-         
+        alert = QMessageBox()        
+        alert.setWindowTitle("Adjust the size of a Box")
+        alert.setStandardButtons(QMessageBox.Ok)
+        if self.selectedCheckbox == -1:
+            alert.setIcon(QMessageBox.Warning)
+            alert.setText('You have not selected a box to adjust its size. Please select and try again. Do not forget to press "Update" before trying to move !')
+            alert.exec()
+        else:
+            alert.setIcon(QMessageBox.Information)
+            alert.setText('Use Left Click to set the top left corner, or right click to set the bottom right corner.')
+            alert.exec()
+            self.label.mousePressEvent = self.adjustSize
+            
+    def adjustSize(self,event):
+        if (event.button() == Qt.LeftButton):
+            x_pressed = round(event.pos().x() * self.ratio)
+            y_pressed = round(event.pos().y() * self.ratio)
+            self.im_boxes[self.selectedCheckbox][2] = -(x_pressed - self.im_boxes[self.selectedCheckbox][0]) + self.im_boxes[self.selectedCheckbox][2]
+            self.im_boxes[self.selectedCheckbox][3] = -(y_pressed - self.im_boxes[self.selectedCheckbox][1]) + self.im_boxes[self.selectedCheckbox][3]
+            self.im_boxes[self.selectedCheckbox][0] = x_pressed
+            self.im_boxes[self.selectedCheckbox][1] = y_pressed
+        elif (event.button() == Qt.RightButton): 
+            x_pressed = round(event.pos().x() * self.ratio)
+            y_pressed = round(event.pos().y() * self.ratio)
+            self.im_boxes[self.selectedCheckbox][2] = x_pressed - self.im_boxes[self.selectedCheckbox][0]
+            self.im_boxes[self.selectedCheckbox][3] = y_pressed - self.im_boxes[self.selectedCheckbox][1]
+        self.fillTable()
+        self.updateBoxesFunction()
+            
     def deleteLabelFunction(self):
         self.notSelectedBoxToDelete()
         
@@ -268,14 +295,14 @@ class App(QWidget):
             self.updateBoxes.setEnabled(True)
             self.addLabel.setEnabled(True)
             self.moveLabel.setEnabled(True)
-            self.adjustSize.setEnabled(True)
+            self.adjustSizeButton.setEnabled(True)
             self.deleteLabel.setEnabled(True)            
         elif not(self.flag):
             self.flag = 1               
             self.updateBoxes.setEnabled(False)
             self.addLabel.setEnabled(False)
             self.moveLabel.setEnabled(False)
-            self.adjustSize.setEnabled(False)
+            self.adjustSizeButton.setEnabled(False)
             self.deleteLabel.setEnabled(False)            
         self.updateImage()
     
