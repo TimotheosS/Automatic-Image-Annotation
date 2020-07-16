@@ -173,8 +173,33 @@ class App(QWidget):
         return(text)
         
     def moveLabelFunction(self):
-        print("Move Label")
-        
+        alert = QMessageBox()        
+        alert.setWindowTitle("Move a Box")
+        alert.setStandardButtons(QMessageBox.Ok)
+        if self.selectedCheckbox == -1:
+            alert.setIcon(QMessageBox.Warning)
+            alert.setText('You have not selected a box to move. Please select and try again. Do not forget to press "Update" before trying to move !')
+            alert.exec()
+        else:
+            alert.setIcon(QMessageBox.Information)
+            alert.setText('Use Left Click to set the top left corner, or right click to set the bottom right corner.')
+            alert.exec()
+            self.label.mousePressEvent = self.movePos 
+            
+    def movePos(self,event):
+        if (event.button() == Qt.LeftButton):
+            x_pressed = round(event.pos().x() * self.ratio)
+            y_pressed = round(event.pos().y() * self.ratio)
+            self.im_boxes[self.selectedCheckbox][0] = x_pressed
+            self.im_boxes[self.selectedCheckbox][1] = y_pressed
+        elif (event.button() == Qt.RightButton):
+            x_pressed = round(event.pos().x() * self.ratio)
+            y_pressed = round(event.pos().y() * self.ratio)
+            self.im_boxes[self.selectedCheckbox][0] = x_pressed - self.im_boxes[self.selectedCheckbox][2]
+            self.im_boxes[self.selectedCheckbox][1] = y_pressed - self.im_boxes[self.selectedCheckbox][3]
+        self.fillTable()
+        self.updateBoxesFunction()
+
     def adjustSizeFunction(self):
         print("Adjust Size")
          
