@@ -7,6 +7,7 @@ from PyQt5.QtCore import Qt
 import cv2
 import numpy as np
 import os
+import csv
 
 configPath = "yolov3.cfg"
 weightsPath = "yolov3.weights"
@@ -66,6 +67,9 @@ class App(QWidget):
         
         self.detTable = form.detailsTable
         
+        with open('bounding_boxes.csv', mode='w') as bounding_file:
+            csv.writer(bounding_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            
         app.exec_()
         
     def originalImageFunction(self):
@@ -114,7 +118,13 @@ class App(QWidget):
             
     def addLabelFunction(self):
         self.addClicked = 1      
-        self.leftClicked = 0     
+        self.leftClicked = 0  
+        alert = QMessageBox()        
+        alert.setWindowTitle("Add a new Box")
+        alert.setStandardButtons(QMessageBox.Ok)      
+        alert.setIcon(QMessageBox.Information)
+        alert.setText('Use Left Click to set the top left corner and then, right click to set the bottom right corner.')
+        alert.exec()        
         self.label.mousePressEvent = self.getPos      
 
     def getPos(self, event):
@@ -166,7 +176,7 @@ class App(QWidget):
             self.updateImage()                            
             
     def inputDialogLabel(self):
-        text, ok = QInputDialog.getText(self, 'Text Input Dialog', 'Enter your name:')
+        text, ok = QInputDialog.getText(self, 'New Label Input Dialog', 'Enter a label of object:')
         le = QLineEdit()
         if ok:
             le.setText(str(text))
@@ -359,7 +369,9 @@ class App(QWidget):
             self.savedImages.append({'id':self.im_counter, 'loaded_path': self.loadedImage, 'indices':self.im_indices,
                                     'boxes':self.im_boxes,'classes_ids':self.classes_ids})
             self.im_counter += 1
-            print(self.savedImages)
+            with open('bounding_boxes.csv', mode='a') as bounding_file:
+                bounding_writer = csv.writer(bounding_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                bounding_writer.writerow([self.im_counter, self.loadedImage, self.im_indices, self.im_boxes, self.classes_ids ])
         
     def loadVideoFunction(self):
         self.label.setText('Loading....')  
