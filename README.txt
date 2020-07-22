@@ -5,4 +5,4 @@ To execute the code follow these steps:
 3) Download the YOLO weights from:
 https://drive.google.com/drive/folders/1HKyED7Sf9UTj8DneMGF_HEdrpp0nvD8y
 
-4) Execute the Python script: gui_pyqt
+4) Execute the Python(version:3.7) script: gui_pyqt
