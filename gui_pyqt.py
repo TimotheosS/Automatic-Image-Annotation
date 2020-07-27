@@ -66,6 +66,9 @@ class App(QWidget):
         self.deleteLabel = form.deleteLabel
         self.deleteLabel.clicked.connect(self.deleteLabelFunction)
         
+        self.savedBoxes = QButtonGroup()
+        self.savedBoxes.setExclusive(True)
+        
         self.detTable = form.detailsTable
         
         with open('bounding_boxes.csv', mode='w') as bounding_file:
@@ -380,10 +383,18 @@ class App(QWidget):
             labelName = "label" + str(self.saveCounter)
             labelName = QLabel(self.window)
             labelName.setScaledContents(True)
-            labelName.setGeometry(790 + 110*(self.saveCounter%2), 50 + 90*int(self.saveCounter/2), 90, 70)
+            labelName.setGeometry(790 + 110*(self.saveCounter%2), 50 + 100*int(self.saveCounter/2), 90, 70)
             labelName.setPixmap(QPixmap('object-detection.jpg'))                     
             labelName.show()
+            checkName = "chkBoxItem" + str(self.saveCounter)
+            checkName = QCheckBox(self.window)
+            self.savedBoxes.addButton(checkName)
+            checkName.setCheckState(Qt.Unchecked)
+            checkName.move(830 + 110*(self.saveCounter%2),120 + 100*int(self.saveCounter/2))
+            checkName.show()            
             self.saveCounter += 1
+            if (self.saveCounter == 12):
+                self.saveCounter = 0
             
             
     def loadVideoFunction(self):
