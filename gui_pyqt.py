@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import QApplication, QPushButton, QLabel, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import cv2
@@ -19,10 +19,10 @@ class App(QWidget):
         super(App,self).__init__()
         
         Form, Window = uic.loadUiType("mainWin.ui")
-        window = Window()
+        self.window = Window()
         form = Form()
-        form.setupUi(window)
-        window.show()
+        form.setupUi(self.window)
+        self.window.show()
                 
         self.updated = 1
         self.im_counter = 0
@@ -38,6 +38,7 @@ class App(QWidget):
         
         self.savedImages= []
         self.seen = set()
+        self.saveCounter = 0
         self.flag = 1
         self.segmentationFlag = 0
         
@@ -78,7 +79,7 @@ class App(QWidget):
         self.segmentationFlag = 0
         self.updateImage()
         
-    def updateImage(self):
+    def updateImage(self):        
         if (self.flag == 1) and (self.segmentationFlag == 0):
             self.image = cv2.imread(self.loadedImage)
             cv2.imwrite("object-detection.jpg", self.image)
@@ -112,6 +113,8 @@ class App(QWidget):
                     w = box[2]
                     h = box[3]
                     self.draw_bounding_box(imageTmp,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+            else:
+                self.updateBoxesFunction()
             cv2.imwrite("object-detection.jpg", imageTmp)
             self.label.setPixmap(QPixmap('object-detection.jpg'))
             self.fillTable()
@@ -216,7 +219,7 @@ class App(QWidget):
         alert.setStandardButtons(QMessageBox.Ok)
         if self.selectedCheckbox == -1:
             alert.setIcon(QMessageBox.Warning)
-            alert.setText('You have not selected a box to adjust its size. Please select and try again. Do not forget to press "Update" before trying to move !')
+            alert.setText('You have not selected a box to adjust its size. Please select and try again. Do not forget to press "Update" before trying to adjust the size of a box !')
             alert.exec()
         else:
             alert.setIcon(QMessageBox.Information)
@@ -371,8 +374,18 @@ class App(QWidget):
             self.im_counter += 1
             with open('bounding_boxes.csv', mode='a') as bounding_file:
                 bounding_writer = csv.writer(bounding_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                bounding_writer.writerow([self.im_counter, self.loadedImage, self.im_indices, self.im_boxes, self.classes_ids ])
-        
+                bounding_writer.writerow([self.im_counter, self.loadedImage, self.im_indices, self.im_boxes, self.classes_ids ])            
+            self.image = cv2.imread(self.loadedImage)
+            cv2.imwrite("object-detection.jpg", self.image)
+            labelName = "label" + str(self.saveCounter)
+            labelName = QLabel(self.window)
+            labelName.setScaledContents(True)
+            labelName.setGeometry(790 + 110*(self.saveCounter%2), 50 + 90*int(self.saveCounter/2), 90, 70)
+            labelName.setPixmap(QPixmap('object-detection.jpg'))                     
+            labelName.show()
+            self.saveCounter += 1
+            
+            
     def loadVideoFunction(self):
         self.label.setText('Loading....')  
         
@@ -558,14 +571,15 @@ class App(QWidget):
         
         if self.segmFlag:  
             self.segmFlag = 0
-            for i in self.im_indices:
-                i = i[0]
-                box = self.im_boxes[i]
-                rect = (int(box[0]),int(box[1]),int(box[2]),int(box[3]))            
-                cv2.grabCut(self.image,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
-                mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
-                self.segmImage = self.segmImage +  self.image*mask2[:,:,np.newaxis]
-
+            if(len(self.im_indices) != 0):
+                for i in self.im_indices:
+                    i = i[0]
+                    box = self.im_boxes[i]
+                    rect = (int(box[0]),int(box[1]),int(box[2]),int(box[3]))            
+                    cv2.grabCut(self.image,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+                    mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+                    self.segmImage = self.segmImage +  self.image*mask2[:,:,np.newaxis]
+    
             for y in range(0, self.image.shape[0]):
                 for x in range(0, self.image.shape[1]):
                     if (self.segmImage[y][x][0] == self.segmImage[y][x][1]) and (self.segmImage[y][x][2] == self.segmImage[y][x][1]):
