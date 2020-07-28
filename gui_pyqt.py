@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QPushButton, QLabel, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import QApplication, QLabel, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import cv2
@@ -56,6 +56,8 @@ class App(QWidget):
         self.originalImage.clicked.connect(self.originalImageFunction)
         self.showLibButton = form.saveToLib
         self.showLibButton.clicked.connect(self.saveToLibFunction)
+        self.loadSavedButton = form.loadBtn
+        self.loadSavedButton.clicked.connect(self.loadSavedFunction)
         
         self.addLabel = form.addLabel
         self.addLabel.clicked.connect(self.addLabelFunction)
@@ -371,6 +373,7 @@ class App(QWidget):
         if self.loadedImage in self.seen:
             print ("Already in library")
         else:
+            self.loadSavedButton.setEnabled(True)
             self.seen.add(self.loadedImage)
             self.savedImages.append({'id':self.im_counter, 'loaded_path': self.loadedImage, 'indices':self.im_indices,
                                     'boxes':self.im_boxes,'classes_ids':self.classes_ids})
@@ -391,12 +394,43 @@ class App(QWidget):
             self.savedBoxes.addButton(checkName)
             checkName.setCheckState(Qt.Unchecked)
             checkName.move(830 + 110*(self.saveCounter%2),120 + 100*int(self.saveCounter/2))
-            checkName.show()            
+            checkName.show()
+            self.savedBoxes.setId(checkName,self.saveCounter) 
             self.saveCounter += 1
             if (self.saveCounter == 12):
                 self.saveCounter = 0
+                
+    def loadSavedFunction(self):
+        checkedBox = self.savedBoxes.checkedId()
+        if checkedBox != (-1):
+            self.image = cv2.imread(self.savedImages[checkedBox]['loaded_path'])
+            self.pixmap = QPixmap(self.savedImages[checkedBox]['loaded_path'])        
+            self.label.setScaledContents(True)
+            self.label.setPixmap(self.pixmap)
+            if (self.pixmap.width() > 660) or (self.pixmap.height() > 660):
+                self.ratio = max(self.pixmap.width()/660,self.pixmap.height()/660) + 0.71
+                self.label.resize(self.pixmap.width() / self.ratio,self.pixmap.height() / self.ratio )
+                pixmapWidth = self.pixmap.width() / self.ratio
+                pixmapHeight = self.pixmap.height() / self.ratio
+            else:
+                self.label.resize(self.pixmap.width(),self.pixmap.height())
+                pixmapWidth = self.pixmap.width()
+                pixmapHeight = self.pixmap.height()
+                
+            self.label.move(660/2-pixmapWidth/2,660/2-pixmapHeight/2)            
+            cv2.imwrite("object-detection.jpg", self.image)
             
+            self.loadedImage = self.savedImages[checkedBox]['loaded_path']
+            self.classes_ids = self.savedImages[checkedBox]['classes_ids']
+            self.im_indices = self.savedImages[checkedBox]['indices']
+            self.im_boxes = self.savedImages[checkedBox]['boxes']              
+            self.label.setPixmap(QPixmap('object-detection.jpg'))
             
+            self.flag = 1
+            self.segmentationFlag = 0
+            self.segmFlag = 1
+            self.updateImage()
+        
     def loadVideoFunction(self):
         self.label.setText('Loading....')  
         
