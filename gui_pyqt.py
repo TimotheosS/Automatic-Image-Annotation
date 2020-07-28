@@ -424,7 +424,9 @@ class App(QWidget):
             self.classes_ids = self.savedImages[checkedBox]['classes_ids']
             self.im_indices = self.savedImages[checkedBox]['indices']
             self.im_boxes = self.savedImages[checkedBox]['boxes']              
-            self.label.setPixmap(QPixmap('object-detection.jpg'))
+            self.label.setPixmap(QPixmap('object-detection.jpg'))            
+            self.segmImage = np.zeros((self.image.shape))        
+            self.gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
             
             self.flag = 1
             self.segmentationFlag = 0
