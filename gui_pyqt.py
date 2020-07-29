@@ -25,7 +25,6 @@ class App(QWidget):
         self.window.show()
                 
         self.updated = 1
-        self.im_counter = 0
         self.scale = 0.00392
         self.classes = None
         with open(classesPath, 'r') as f:
@@ -41,6 +40,7 @@ class App(QWidget):
         self.saveCounter = 0
         self.flag = 1
         self.segmentationFlag = 0
+        self.savedPos = 0
         
         self.label = form.loadedImgLbl
         self.quitBut = form.qbtn.clicked.connect(self.quitApp)
@@ -375,30 +375,30 @@ class App(QWidget):
         else:
             self.loadSavedButton.setEnabled(True)
             self.seen.add(self.loadedImage)
-            self.savedImages.append({'id':self.im_counter, 'loaded_path': self.loadedImage, 'indices':self.im_indices,
+            self.savedImages.append({'id':self.saveCounter, 'loaded_path': self.loadedImage, 'indices':self.im_indices,
                                     'boxes':self.im_boxes,'classes_ids':self.classes_ids})
-            self.im_counter += 1
             with open('bounding_boxes.csv', mode='a') as bounding_file:
                 bounding_writer = csv.writer(bounding_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                bounding_writer.writerow([self.im_counter, self.loadedImage, self.im_indices, self.im_boxes, self.classes_ids ])            
+                bounding_writer.writerow([self.saveCounter, self.loadedImage, self.im_indices, self.im_boxes, self.classes_ids ])            
             self.image = cv2.imread(self.loadedImage)
             cv2.imwrite("object-detection.jpg", self.image)
             labelName = "label" + str(self.saveCounter)
             labelName = QLabel(self.window)
             labelName.setScaledContents(True)
-            labelName.setGeometry(790 + 110*(self.saveCounter%2), 50 + 100*int(self.saveCounter/2), 90, 70)
+            labelName.setGeometry(790 + 110*(self.savedPos%2), 50 + 100*int(self.savedPos/2), 90, 70)
             labelName.setPixmap(QPixmap('object-detection.jpg'))                     
             labelName.show()
             checkName = "chkBoxItem" + str(self.saveCounter)
             checkName = QCheckBox(self.window)
             self.savedBoxes.addButton(checkName)
             checkName.setCheckState(Qt.Unchecked)
-            checkName.move(830 + 110*(self.saveCounter%2),120 + 100*int(self.saveCounter/2))
+            checkName.move(830 + 110*(self.savedPos%2),120 + 100*int(self.savedPos/2))
             checkName.show()
             self.savedBoxes.setId(checkName,self.saveCounter) 
             self.saveCounter += 1
-            if (self.saveCounter == 12):
-                self.saveCounter = 0
+            self.savedPos += 1
+            if (self.savedPos == 12):
+                self.savedPos = 0
                 
     def loadSavedFunction(self):
         checkedBox = self.savedBoxes.checkedId()
