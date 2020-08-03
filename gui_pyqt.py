@@ -84,7 +84,8 @@ class App(QWidget):
         self.segmentationFlag = 0
         self.updateImage()
         
-    def updateImage(self):        
+    def updateImage(self):          
+        size = max(self.pixmap.height(),self.pixmap.width())
         if (self.flag == 1) and (self.segmentationFlag == 0):
             self.image = cv2.imread(self.loadedImage)
             cv2.imwrite("object-detection.jpg", self.image)
@@ -103,7 +104,7 @@ class App(QWidget):
                 y = box[1]
                 w = box[2]
                 h = box[3]
-                self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+                self.draw_bounding_box(self.image,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),size/1000,2)
             cv2.imwrite("object-detection.jpg", self.image)
             self.label.setPixmap(QPixmap('object-detection.jpg'))
             self.fillTable()
@@ -117,7 +118,7 @@ class App(QWidget):
                     y = box[1]
                     w = box[2]
                     h = box[3]
-                    self.draw_bounding_box(imageTmp,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),0.8,2)
+                    self.draw_bounding_box(imageTmp,str(self.classes[self.classes_ids[i]]), self.classes_ids[i], round(x), round(y), round(x+w), round(y+h),size/1000,2)
             else:
                 self.updateBoxesFunction()
             cv2.imwrite("object-detection.jpg", imageTmp)
@@ -329,8 +330,8 @@ class App(QWidget):
             self.image = self.segmImage
         else:
             self.image = cv2.imread(self.loadedImage)
-                                    
-        for i in range(1,self.rows):            
+        size = max(self.pixmap.height(),self.pixmap.width())
+        for i in range(1,self.rows):             
             label = (self.detTable.item(i,0).text())
             x = int(self.detTable.item(i,1).text())
             y = int(self.detTable.item(i,2).text())
@@ -341,24 +342,24 @@ class App(QWidget):
                 index = self.classes.index(label)  
                 if self.detTable.cellWidget(i,5).isChecked():
                     self.selectedCheckbox = i-1
-                    thickness = 1.4
+                    thickness = size / 571.4286
                     rect_size = 4
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
                 else:
                     rect_size = 2
-                    thickness = 0.8
+                    thickness = size / 1000
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
             elif label not in self.classes:
                 index = -1
                 if self.detTable.cellWidget(i,5).isChecked():
                     self.selectedCheckbox = i-1
-                    thickness = 1.4
+                    thickness = size / 571.4286
                     rect_size = 4
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
                     index = self.classes.index(label)
                 else:
                     rect_size = 2
-                    thickness = 0.8
+                    thickness = size / 1000
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
                     index = self.classes.index(label)
             self.classes_ids[i-1] = index
