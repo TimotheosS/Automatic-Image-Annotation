@@ -72,6 +72,7 @@ class App(QWidget):
         self.savedBoxes.setExclusive(True)
         
         self.detTable = form.detailsTable
+        self.video = 0
         
         with open('bounding_boxes.csv', mode='w') as bounding_file:
             csv.writer(bounding_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -87,7 +88,8 @@ class App(QWidget):
     def updateImage(self):          
         size = max(self.pixmap.height(),self.pixmap.width())
         if (self.flag == 1) and (self.segmentationFlag == 0):
-            self.image = cv2.imread(self.loadedImage)
+            if not(self.video):
+                self.image = cv2.imread(self.loadedImage)
             cv2.imwrite("object-detection.jpg", self.image)
             self.label.setPixmap(QPixmap('object-detection.jpg'))
             self.emptyTable()
@@ -96,7 +98,8 @@ class App(QWidget):
             self.emptyTable()
             self.image = self.segmImage
         elif (self.flag == 0) and (self.segmentationFlag == 0):
-            self.image = cv2.imread(self.loadedImage)
+            if not(self.video):
+                self.image = cv2.imread(self.loadedImage)
             for i in self.im_indices:
                 i = i[0]
                 box = self.im_boxes[i]
@@ -443,12 +446,17 @@ class App(QWidget):
         self.pixmap = QPixmap(self.loadedVideo)        
         self.label.setScaledContents(True)
         self.label.setPixmap(self.pixmap)
+        self.boundingBoxes.setEnabled(True)
+        self.originalImage.setEnabled(True)
 
         pixmapWidth = 660*0.71
         pixmapHeight = 660*0.71
         self.label.resize(pixmapWidth,pixmapHeight)
         self.label.move(660/2-pixmapWidth/2,660/2-pixmapHeight/2)
         
+        self.video = 1
+        self.flag = 1
+        self.segmentationFlag = 0
         cap = cv2.VideoCapture(self.loadedVideo)
         while(cap.isOpened()):
             ret, frame = cap.read()
@@ -459,12 +467,15 @@ class App(QWidget):
                 self.net.setInput(self.blob)
                 
                 self.yoloPredImage()
+                cv2.imwrite("object-detection.jpg", self.image)  
+                self.updateImage()
         
                 self.label.setPixmap(QPixmap('object-detection.jpg'))
             if cv2.waitKey(25) & 0xFF == ord('q'): 
                 break
         cap.release()
         cv2.destroyAllWindows()
+        self.video = 0
           
     def loadImageFunction(self):
         self.label.setText('Loading....')  
