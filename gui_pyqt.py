@@ -161,6 +161,7 @@ class App(QWidget):
             self.classes_ids.append(index)
             self.im_boxes.append([self.x_begin,self.y_begin, x_end-self.x_begin,y_end-self.y_begin])
             self.im_indices = np.vstack((self.im_indices,len(self.im_indices)))
+            self.updateImage()
             self.fillTable()                        
             
             if not(self.segmFlag):
@@ -184,8 +185,7 @@ class App(QWidget):
                                 self.segmImage[y][x][1] = 0
                                 self.segmImage[y][x][2] = 255
                     self.image = self.segmImage
-                    cv2.imwrite("segmented-image.jpg", self.segmImage)                    
-            self.updateImage()                            
+                    cv2.imwrite("segmented-image.jpg", self.segmImage)                                                
             
     def inputDialogLabel(self):
         text, ok = QInputDialog.getText(self, 'New Label Input Dialog', 'Enter a label of object:')
@@ -500,6 +500,7 @@ class App(QWidget):
             pixmapWidth = self.pixmap.width() / self.ratio
             pixmapHeight = self.pixmap.height() / self.ratio
         else:
+            self.ratio = 1
             self.label.resize(self.pixmap.width(),self.pixmap.height())
             pixmapWidth = self.pixmap.width()
             pixmapHeight = self.pixmap.height()
