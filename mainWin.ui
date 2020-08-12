@@ -41,7 +41,7 @@
    <widget class="QPushButton" name="loadIm">
     <property name="geometry">
      <rect>
-      <x>186</x>
+      <x>190</x>
       <y>650</y>
       <width>75</width>
       <height>23</height>
@@ -77,7 +77,7 @@
      </rect>
     </property>
     <property name="text">
-     <string> </string>
+     <string/>
     </property>
    </widget>
    <widget class="Line" name="line">
@@ -125,10 +125,10 @@
    <widget class="QTableWidget" name="detailsTable">
     <property name="geometry">
      <rect>
-      <x>470</x>
-      <y>540</y>
-      <width>306</width>
-      <height>133</height>
+      <x>620</x>
+      <y>440</y>
+      <width>151</width>
+      <height>191</height>
      </rect>
     </property>
     <property name="sizeAdjustPolicy">
@@ -154,8 +154,8 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>580</x>
-      <y>510</y>
+      <x>660</x>
+      <y>650</y>
       <width>75</width>
       <height>23</height>
      </rect>

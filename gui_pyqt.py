@@ -204,7 +204,7 @@ class App(QWidget):
             alert.exec()
         else:
             alert.setIcon(QMessageBox.Information)
-            alert.setText('Use Left Click to set the top left corner, or right click to set the bottom right corner.')
+            alert.setText('Use Left Click to set the top left corner.')
             alert.exec()
             self.label.mousePressEvent = self.movePos 
             
@@ -214,11 +214,6 @@ class App(QWidget):
             y_pressed = round(event.pos().y() * self.ratio)
             self.im_boxes[self.selectedCheckbox][0] = x_pressed
             self.im_boxes[self.selectedCheckbox][1] = y_pressed
-        elif (event.button() == Qt.RightButton):
-            x_pressed = round(event.pos().x() * self.ratio)
-            y_pressed = round(event.pos().y() * self.ratio)
-            self.im_boxes[self.selectedCheckbox][0] = x_pressed - self.im_boxes[self.selectedCheckbox][2]
-            self.im_boxes[self.selectedCheckbox][1] = y_pressed - self.im_boxes[self.selectedCheckbox][3]
         self.fillTable()
         self.updateBoxesFunction()
 
@@ -252,10 +247,7 @@ class App(QWidget):
         self.fillTable()
         self.updateBoxesFunction()
             
-    def deleteLabelFunction(self):
-        self.notSelectedBoxToDelete()
-        
-    def notSelectedBoxToDelete(self):  
+    def deleteLabelFunction(self): 
         alert = QMessageBox()
         alert.setIcon(QMessageBox.Warning)
         alert.setWindowTitle("Delete a Box")
@@ -334,16 +326,16 @@ class App(QWidget):
         else:
             self.image = cv2.imread(self.loadedImage)
         size = max(self.pixmap.height(),self.pixmap.width())
-        for i in range(1,self.rows):             
+        for i in range(1,self.rows):
+            box = self.im_boxes[i-1]             
             label = (self.detTable.item(i,0).text())
-            x = int(self.detTable.item(i,1).text())
-            y = int(self.detTable.item(i,2).text())
-            w = int(self.detTable.item(i,3).text())
-            h = int(self.detTable.item(i,4).text())
-            self.im_boxes[i-1][:] = ([x, y, w, h])
+            x = int(box[0])
+            y = int(box[1])
+            w = int(box[2])
+            h = int(box[3])
             if label in self.classes:                
                 index = self.classes.index(label)  
-                if self.detTable.cellWidget(i,5).isChecked():
+                if self.detTable.cellWidget(i,1).isChecked():
                     self.selectedCheckbox = i-1
                     thickness = size / 571.4286
                     rect_size = 4
@@ -354,7 +346,7 @@ class App(QWidget):
                     self.draw_bounding_box(self.image, label,index, x, y, (x+w), (y+h),thickness,rect_size)
             elif label not in self.classes:
                 index = -1
-                if self.detTable.cellWidget(i,5).isChecked():
+                if self.detTable.cellWidget(i,1).isChecked():
                     self.selectedCheckbox = i-1
                     thickness = size / 571.4286
                     rect_size = 4
@@ -554,7 +546,7 @@ class App(QWidget):
         self.im_boxes = boxes    
         
     def fillTable(self):     
-        headers = ["Label", "X", "Y", "Width","Height", "Check"]
+        headers = ["Label", "Check"]
         self.col = len(headers)
         self.rows = len(self.classes_ids) + 1
         
@@ -573,7 +565,7 @@ class App(QWidget):
             name = QCheckBox()
             self.checkBoxes.addButton(name)
             name.setCheckState(Qt.Unchecked) 
-            self.detTable.setCellWidget(i, 5, name)
+            self.detTable.setCellWidget(i, 1, name)
             for j in range(1,self.col-1):
                 self.detTable.setItem(i,j, QTableWidgetItem(str(round(self.im_boxes[i-1][j-1]))))            
             self.detTable.resizeColumnsToContents()
