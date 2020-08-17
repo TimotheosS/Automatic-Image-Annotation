@@ -79,12 +79,14 @@ class App(QWidget):
             
         app.exec_()
         
+    # Used to load the original image selected by the user
     def originalImageFunction(self):
         self.emptyTable()  
         self.flag = 1
         self.segmentationFlag = 0
         self.updateImage()
         
+    # Used to update the shown image in the GUI
     def updateImage(self):          
         size = max(self.pixmap.height(),self.pixmap.width())
         if (self.flag == 1) and (self.segmentationFlag == 0):
@@ -127,7 +129,8 @@ class App(QWidget):
             cv2.imwrite("object-detection.jpg", imageTmp)
             self.label.setPixmap(QPixmap('object-detection.jpg'))
             self.fillTable()
-            
+           
+    # Used to add a new label as a bounding box to the image
     def addLabelFunction(self):
         self.addClicked = 1      
         self.leftClicked = 0  
@@ -139,6 +142,7 @@ class App(QWidget):
         alert.exec()        
         self.label.mousePressEvent = self.getPos      
 
+    # Used to get the position that the left/right mouse click was clicked on the image and add the new label
     def getPos(self, event):
         if (event.button() == Qt.LeftButton) and (self.addClicked) and not(self.leftClicked):
             self.leftClicked = 1
@@ -160,7 +164,10 @@ class App(QWidget):
             index = self.classes.index(new_label)            
             self.classes_ids.append(index)
             self.im_boxes.append([self.x_begin,self.y_begin, x_end-self.x_begin,y_end-self.y_begin])
-            self.im_indices = np.vstack((self.im_indices,len(self.im_indices)))
+            if (len(self.im_indices) == 0):
+                self.im_indices = [[0]]
+            else:
+                self.im_indices = np.vstack((self.im_indices,len(self.im_indices)))
             self.updateImage()
             self.fillTable()                        
             
@@ -187,6 +194,7 @@ class App(QWidget):
                     self.image = self.segmImage
                     cv2.imwrite("segmented-image.jpg", self.segmImage)                                                
             
+    # Used to warn the user to add a label to the new bounding box
     def inputDialogLabel(self):
         text, ok = QInputDialog.getText(self, 'New Label Input Dialog', 'Enter a label of object:')
         le = QLineEdit()
@@ -194,6 +202,7 @@ class App(QWidget):
             le.setText(str(text))
         return(text)
         
+    # Used to move an existing bounding box of the image by pressing the left mouse click
     def moveLabelFunction(self):
         alert = QMessageBox()        
         alert.setWindowTitle("Move a Box")
@@ -208,6 +217,7 @@ class App(QWidget):
             alert.exec()
             self.label.mousePressEvent = self.movePos 
             
+    # Used to move the selected box to a new position in the image
     def movePos(self,event):
         if (event.button() == Qt.LeftButton):
             x_pressed = round(event.pos().x() * self.ratio)
@@ -217,6 +227,7 @@ class App(QWidget):
         self.fillTable()
         self.updateBoxesFunction()
 
+    # Used to adjust the size of an existing bounding box of the image
     def adjustSizeFunction(self):
         alert = QMessageBox()        
         alert.setWindowTitle("Adjust the size of a Box")
@@ -231,6 +242,7 @@ class App(QWidget):
             alert.exec()
             self.label.mousePressEvent = self.adjustSize
             
+    # Adjust the size of a bounding box based on which click was pressed
     def adjustSize(self,event):
         if (event.button() == Qt.LeftButton):
             x_pressed = round(event.pos().x() * self.ratio)
@@ -247,6 +259,7 @@ class App(QWidget):
         self.fillTable()
         self.updateBoxesFunction()
             
+    # Deletes an existing bounding box from the image
     def deleteLabelFunction(self): 
         alert = QMessageBox()
         alert.setIcon(QMessageBox.Warning)
@@ -301,6 +314,7 @@ class App(QWidget):
                                 
                 self.updateImage()
     
+    # Sets the buttons that the user can click on when he selects the bounding boxes option
     def boundingBoxesFunction(self):
         self.selectedCheckbox = -1
         
@@ -320,6 +334,7 @@ class App(QWidget):
             self.deleteLabel.setEnabled(False)            
         self.updateImage()
     
+    # Sets the thickness of each bounding box based on his selection
     def updateBoxesFunction(self):        
         if self.segmentationFlag:
             self.image = self.segmImage
@@ -362,9 +377,11 @@ class App(QWidget):
         self.updated = 0
         self.label.setPixmap(QPixmap('object-detection.jpg'))
         
+    # Quits the application
     def quitApp(self):
         QApplication.quit()
         
+    # Saves the image and its bounding boxes into a temporary library. Saved in COCO format
     def saveToLibFunction(self):        
         if self.loadedImage in self.seen:
             print ("Already in library")
@@ -396,6 +413,7 @@ class App(QWidget):
             if (self.savedPos == 12):
                 self.savedPos = 0
                 
+    # Loads the image selected by the user and its bounding boxes and shows it in the GUI
     def loadSavedFunction(self):
         checkedBox = self.savedBoxes.checkedId()
         if checkedBox != (-1):
@@ -429,6 +447,7 @@ class App(QWidget):
             self.segmFlag = 1
             self.updateImage()
         
+    # Loads a video selected by the user
     def loadVideoFunction(self):
         self.label.setText('Loading....')  
         
@@ -469,6 +488,7 @@ class App(QWidget):
         cv2.destroyAllWindows()
         self.video = 0
           
+    # Loads an image based on the user's selection
     def loadImageFunction(self):
         self.label.setText('Loading....')  
         
@@ -512,6 +532,7 @@ class App(QWidget):
         self.label.setPixmap(QPixmap('object-detection.jpg'))
         self.emptyTable()
                     
+    # Uses YOLO pre-trained CNN to identify objects into the image
     def yoloPredImage(self):
         outs = self.net.forward(self.get_output_layers())
         Width = self.image.shape[1]
@@ -545,6 +566,7 @@ class App(QWidget):
         self.im_indices = indices
         self.im_boxes = boxes    
         
+    # Fills a table with the objects identified by YOLO and gives the ability to the user to select one of those
     def fillTable(self):     
         headers = ["Label", "Check"]
         self.col = len(headers)
@@ -570,6 +592,7 @@ class App(QWidget):
                 self.detTable.setItem(i,j, QTableWidgetItem(str(round(self.im_boxes[i-1][j-1]))))            
             self.detTable.resizeColumnsToContents()
             
+    # Empties the table filled with the objects identified by YOLO algorithm
     def emptyTable(self):
         self.col = 0
         self.rows = 0
@@ -581,6 +604,7 @@ class App(QWidget):
         self.output_layers = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
         return self.output_layers   
     
+    # Draws a bounding box for each identified object of the image
     def draw_bounding_box(self,img, label, class_id, x, y, x_plus_w, y_plus_h, thickness,rect_size):
         if class_id == -1:            
             color = np.random.uniform(0, 255, 3)
@@ -595,6 +619,7 @@ class App(QWidget):
             cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, rect_size)
             cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, thickness, color, 2)
         
+    # Warns the user that the label that he is about to add is not included in the dataset and asks him if he wants to add it
     def new_label_addition(self,label,color):
         alert = QMessageBox()
         alert.setIcon(QMessageBox.Information)
@@ -609,12 +634,14 @@ class App(QWidget):
            choice = 1
         return(choice)
        
+    # Centers the GUI in the center of the screen
     def center(self):
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
         
+    # Uses te GraphCut method to segment the image
     def segmentationFunction(self):
         self.image = cv2.imread(self.loadedImage)  
         mask = np.zeros(self.image.shape[:2],np.uint8)        
