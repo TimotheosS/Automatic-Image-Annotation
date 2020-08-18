@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QLabel, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QLineEdit, QInputDialog, QTableWidgetItem, QFileDialog,QWidget, QDesktopWidget, QMessageBox, QButtonGroup, QCheckBox
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import cv2
@@ -339,7 +339,8 @@ class App(QWidget):
         if self.segmentationFlag:
             self.image = self.segmImage
         else:
-            self.image = cv2.imread(self.loadedImage)
+            if not(self.video):
+                self.image = cv2.imread(self.loadedImage)
         size = max(self.pixmap.height(),self.pixmap.width())
         for i in range(1,self.rows):
             box = self.im_boxes[i-1]             
@@ -460,6 +461,19 @@ class App(QWidget):
         self.boundingBoxes.setEnabled(True)
         self.originalImage.setEnabled(True)
 
+        self.pauseButton = QPushButton(self.window)
+        self.pauseButton.clicked.connect(self.pauseFunction)
+        self.pauseButton.setGeometry(93, 565, 90, 30)
+        self.pauseButton.setText("Pause")
+        self.pauseButton.show()
+        self.playButton = QPushButton(self.window)
+        self.playButton.clicked.connect(self.playFunction)
+        self.playButton.setGeometry(183, 565, 90, 30)
+        self.playButton.setText("Play")
+        self.playButton.show()
+                
+        self.pauseFlag = 0
+        
         pixmapWidth = 660*0.71
         pixmapHeight = 660*0.71
         self.label.resize(pixmapWidth,pixmapHeight)
@@ -470,23 +484,40 @@ class App(QWidget):
         self.segmentationFlag = 0
         cap = cv2.VideoCapture(self.loadedVideo)
         while(cap.isOpened()):
-            ret, frame = cap.read()
-            if ret:
-                self.image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = self.image .shape 
-                self.blob = cv2.dnn.blobFromImage(self.image , self.scale, (416,416), (0,0,0), True, crop=False)
-                self.net.setInput(self.blob)
-                
-                self.yoloPredImage()
-                cv2.imwrite("object-detection.jpg", self.image)  
-                self.updateImage()
-        
-                self.label.setPixmap(QPixmap('object-detection.jpg'))
+            if (self.pauseFlag == 0):
+                ret, frame = cap.read()
+                if ret:
+                    self.image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    h, w, ch = self.image .shape 
+                    self.blob = cv2.dnn.blobFromImage(self.image , self.scale, (416,416), (0,0,0), True, crop=False)
+                    self.net.setInput(self.blob)
+                    
+                    self.yoloPredImage()
+                    cv2.imwrite("object-detection.jpg", self.image)  
+                    self.updateImage()
+            
+                    self.label.setPixmap(QPixmap('object-detection.jpg'))
             if cv2.waitKey(25) & 0xFF == ord('q'): 
                 break
         cap.release()
         cv2.destroyAllWindows()
         self.video = 0
+        
+    def pauseFunction(self):
+        self.pauseFlag = 1
+        self.updateBoxes.setEnabled(True)
+        self.addLabel.setEnabled(True)
+        self.moveLabel.setEnabled(True)
+        self.adjustSizeButton.setEnabled(True)
+        self.deleteLabel.setEnabled(True)
+        
+    def playFunction(self):
+        self.pauseFlag = 0
+        self.updateBoxes.setEnabled(False)
+        self.addLabel.setEnabled(False)
+        self.moveLabel.setEnabled(False)
+        self.adjustSizeButton.setEnabled(False)
+        self.deleteLabel.setEnabled(False)
           
     # Loads an image based on the user's selection
     def loadImageFunction(self):
